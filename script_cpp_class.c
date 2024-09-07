@@ -14,6 +14,11 @@ static int create_file(char *name, char *suffix, char **file)
 	strcpy(*file, name);
 	strcat(*file, suffix);
 	int fd = open(*file, O_WRONLY | O_CREAT | O_EXCL, 00644);
+	if (fd == -1)
+	{
+		perror(*file);
+		free(*file);
+	}
 	return fd;
 }
 
@@ -26,33 +31,25 @@ static int create_both_files(char *name, int *fd_hpp, int *fd_cpp)
 
 	*fd_hpp = create_file(name, ".hpp", &file_hpp);
 	if (*fd_hpp == -1)
-	{
-		perror(file_hpp);
-		free(file_hpp);
 		return 1;
-	}
 	if (*fd_hpp == ENOMEM)
 	{
 		dprintf(2, "%s.hpp: %s\n", name, strerror(errno));
 		exit(ENOMEM);
 	}
 	*fd_cpp = create_file(name, ".cpp", &file_cpp);
-	if (*fd_cpp == -1)
+	if (*fd_cpp == -1 || *fd_cpp == ENOMEM)
 	{
-		perror(file_cpp);
-		free(file_cpp);
 		close(*fd_hpp);
 		unlink(file_hpp);
 		free(file_hpp);
-		return 1;
-	}
-	if (*fd_cpp == ENOMEM)
-	{
-		dprintf(2, "%s.cpp: %s\n", name, strerror(errno));
-		close(*fd_hpp);
-		unlink(file_hpp);
-		free(file_hpp);
-		exit(ENOMEM);
+		if (*fd_cpp == -1)
+			return 1;
+		else
+		{
+			dprintf(2, "%s.cpp: %s\n", name, strerror(errno));
+			exit(ENOMEM);
+		}
 	}
 	printf("created %s and %s\n", file_hpp, file_cpp);
 	free(file_hpp);
